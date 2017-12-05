@@ -8,7 +8,6 @@ import tensorflow as tf
 import numpy as np
 import datetime
 import matplotlib.pyplot as plt
-from PIL import Image
 import os
 
 
@@ -28,7 +27,7 @@ batch_size = 32 # Number of images to run at each batch
 learning_rate = 0.03 # Learning rate for optimizer
 logdir = './logs/dcgan_mnist/' # Logdir for tensorboard summaries
 num_adversarial_iter = 50000000 # Number of epochs for the adversarial training
-num_discriminator_iter = 1000 # Number of epochs to pretrain the discriminator
+num_discriminator_iter = 10000 # Number of epochs to pretrain the discriminator
 pkeep = 0.75 # Probability with which to keep nodes
 print_all = False # Print all tensor names and shapes
 
@@ -300,6 +299,10 @@ z_sample = tf.placeholder(dtype = tf.float32, shape = [6, 128], name='z_sample')
 sample_images = generator(z_sample, True)
 tf.summary.image('Generated_images', sample_images, 6)
 
+# Write out images to disk
+output_image_placeholder = tf.placeholder(dtype = tf.float32, shape = [28, 28, 1], name='output_image_placeholder')
+cast_image = tf.cast(tf.multiply(output_image_placeholder, 255), tf.uint8)
+encode_image = tf.image.encode_jpeg(cast_image)
 
 # In[9]:
 
@@ -367,11 +370,14 @@ for i in range(num_adversarial_iter):
             for j, a in enumerate(ax):
                 im = image[j].squeeze()
                 a.imshow(im, cmap='gray_r') # Squeeze the output of the generator down to two dimensions
-                if i%100000 == 0:
-                    img = Image.fromarray(im)
-                    img.save(os.path.join("./sample_images/", "iter_{}_sample_{}.jpeg".format(i,j)))
-                    print("Wrote sample {} at iter {}".format(j,i))
             plt.show(block=False)
+            if i%100000 == 0:
+                if not os.path.exists('sample_images'):
+                    os.makedirs('sample_images')
+                for j in range(image.shape[0]):
+                    image_jpeg = sess.run(encode_image, feed_dict={output_image_placeholder: image[j] })
+                    with open('sample_images/iter_{}_sample_{}.jpeg'.format(i,j), 'wb') as fd:
+                        fd.write(image_jpeg)
     if i%1000 == 0:
         z_test = np.random.normal(-1, 1, [batch_size, 128])
         image_batch_test = mnist.train.next_batch(batch_size)
@@ -380,8 +386,10 @@ for i in range(num_adversarial_iter):
                                                                z_placeholder: z_test})
         print(i, d_loss_real, d_loss_fake, g_loss)
     if i%100000 == 0:
+        if not os.path.exists('saved_models'):
+            os.makedirs('saved_models')
         print('Saving model at iteration {}'.format(i))
-        save_path = saver.save(sess, 'model_at_{}'.format(i), global_step=i)
+        save_path = saver.save(sess, 'saved_models/model'.format(i), global_step=i)
         print('Model saved at {}'.format(save_path))
 
 
