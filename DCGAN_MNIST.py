@@ -8,6 +8,8 @@ import tensorflow as tf
 import numpy as np
 import datetime
 import matplotlib.pyplot as plt
+from PIL import Image
+import os
 
 
 # In[2]:
@@ -25,7 +27,7 @@ mnist = input_data.read_data_sets("MNIST_data/")
 batch_size = 32 # Number of images to run at each batch
 learning_rate = 0.03 # Learning rate for optimizer
 logdir = './logs/dcgan_mnist/' # Logdir for tensorboard summaries
-num_adversarial_iter = 1000000 # Number of epochs for the adversarial training
+num_adversarial_iter = 50000000 # Number of epochs for the adversarial training
 num_discriminator_iter = 1000 # Number of epochs to pretrain the discriminator
 pkeep = 0.75 # Probability with which to keep nodes
 print_all = False # Print all tensor names and shapes
@@ -352,7 +354,7 @@ for i in range(num_adversarial_iter):
     sess.run([D_train_real, D_train_fake, G_train], feed_dict={images_placeholder: image_batch[0],
                                                                z_placeholder: z_input})
 
-    if i%10 == 0:
+    if i%100 == 0:
         z_val = np.random.normal(-1, 1, [batch_size, 128])
         image_batch_val = mnist.train.next_batch(batch_size)
         z_summary = np.random.normal(-1, 1, [6, 128])
@@ -362,8 +364,13 @@ for i in range(num_adversarial_iter):
             image = sess.run(sample_images, feed_dict={z_sample: z_summary})
             plt.close()
             fig, ax = plt.subplots(1, 6, figsize = (15, 24))
-            for i, a in enumerate(ax):
-                a.imshow(image[i].squeeze(), cmap='gray_r') # Squeeze the output of the generator down to two dimensions
+            for j, a in enumerate(ax):
+                im = image[j].squeeze()
+                a.imshow(im, cmap='gray_r') # Squeeze the output of the generator down to two dimensions
+                if i%100000 == 0:
+                    img = Image.fromarray(im)
+                    img.save(os.path.join("./sample_images/", "iter_{}_sample_{}.jpeg".format(i,j)))
+                    print("Wrote sample {} at iter {}".format(j,i))
             plt.show(block=False)
     if i%1000 == 0:
         z_test = np.random.normal(-1, 1, [batch_size, 128])
@@ -372,7 +379,7 @@ for i in range(num_adversarial_iter):
                                                     feed_dict={images_placeholder: image_batch_test[0],
                                                                z_placeholder: z_test})
         print(i, d_loss_real, d_loss_fake, g_loss)
-    if i%10000 == 0:
+    if i%100000 == 0:
         print('Saving model at iteration {}'.format(i))
         save_path = saver.save(sess, 'model_at_{}'.format(i), global_step=i)
         print('Model saved at {}'.format(save_path))
