@@ -24,7 +24,7 @@ mnist = input_data.read_data_sets("MNIST_data/")
 
 # Hyperparameters
 batch_size = 32 # Number of images to run at each batch
-learning_rate = 0.03 # Learning rate for optimizer
+learning_rate = 0.0001 # Learning rate for optimizer
 logdir = './logs/dcgan_mnist/' # Logdir for tensorboard summaries
 num_adversarial_iter = 50000000 # Number of epochs for the adversarial training
 num_discriminator_iter = 10000 # Number of epochs to pretrain the discriminator
@@ -46,6 +46,9 @@ def conv_layer(input, kernel_size, channels_in, channels_out, stride, name, reus
         conv = tf.nn.conv2d(input, w, strides=[1, stride, stride, 1], padding="SAME")
         act = tf.nn.elu(conv + b, name='activation')
 
+        # Dropout regularization to prevent overfit
+        act_dropout = tf.nn.dropout(act, pkeep)
+
         # Creating summaries for Tensorboard
         tf.summary.histogram("weights", w)
         tf.summary.histogram("biases", b)
@@ -59,7 +62,7 @@ def conv_layer(input, kernel_size, channels_in, channels_out, stride, name, reus
             print(conv.name, conv.shape)
             print(act.name, act.shape)
 
-        return act
+        return act_dropout
 
 def fc_layer(input, size_in, size_out, name, activation, reuse_variables=None):
     with tf.variable_scope(name, reuse=reuse_variables):
@@ -81,15 +84,16 @@ def fc_layer(input, size_in, size_out, name, activation, reuse_variables=None):
 
         # Covering the different cases needed
         if activation == 'linear':
+            logit_dropout = tf.nn.dropout(logit, pkeep)
             tf.summary.histogram("activations", logit)
-            return logit
+            return logit_dropout
         elif activation == 'elu':
             act = tf.nn.elu(logit, name='activation')
+            act_dropout = tf.nn.dropout(act, pkeep)
             tf.summary.histogram("activations", act)
             if print_all:
                    print(act.name, act.shape)
-
-            return act
+            return act_dropout
 
 def deconv_layer(input, kernel_size, channels_in, channels_out, stride, name, activation, reuse_variables=None):
     input_shape = input.get_shape().as_list()
@@ -116,10 +120,11 @@ def deconv_layer(input, kernel_size, channels_in, channels_out, stride, name, ac
         # Covering the different cases needed
         if activation == 'elu':
             act = tf.nn.elu(conv + b, name='activation')
+            act_dropout = tf.nn.dropout(act, pkeep)
             if print_all:
                 print(act.name, act.shape)
             tf.summary.histogram("activations", act)
-            return act
+            return act_dropout
         elif activation == 'sigmoid':
             act = tf.nn.sigmoid(conv + b, name='activation')
             if print_all:
@@ -372,12 +377,16 @@ for i in range(num_adversarial_iter):
                 a.imshow(im, cmap='gray_r') # Squeeze the output of the generator down to two dimensions
             plt.show(block=False)
             if i%100000 == 0:
-                if not os.path.exists('sample_images'):
-                    os.makedirs('sample_images')
+                #if not os.path.exists('sample_images'):
+                #    os.makedirs('sample_images')
+                #for j in range(image.shape[0]):
+                #    image_jpeg = sess.run(encode_image, feed_dict={output_image_placeholder: image[j] })
+                #    with open('sample_images/iter_{}_sample_{}.jpeg'.format(i,j), 'wb') as fd:
+                #        fd.write(image_jpeg)
+                if not os.path.exists('sample_generated'):
+                    os.makedirs('sample_generated')
                 for j in range(image.shape[0]):
-                    image_jpeg = sess.run(encode_image, feed_dict={output_image_placeholder: image[j] })
-                    with open('sample_images/iter_{}_sample_{}.jpeg'.format(i,j), 'wb') as fd:
-                        fd.write(image_jpeg)
+                    np.savetxt('sample_generated/iter_{}_sample_{}.csv'.format(i,j), image[j], delimiter=',')
     if i%1000 == 0:
         z_test = np.random.normal(-1, 1, [batch_size, 128])
         image_batch_test = mnist.train.next_batch(batch_size)
