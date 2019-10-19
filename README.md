@@ -4,7 +4,7 @@
 
 Implementation of a Deep Convolutional Generative Adversarial Network using TensorFlow and Jupyter Notebook as final project for CSC 59929 Intro to Machine Learning at the City College of New York. This was able to effectively learn the distribution of the MNIST dataset and produce images that contain convincing handwritten digits.
 
-## Screenshots of from training
+## Screenshots from training
 
 Before training: <br/>
 <img src="https://raw.github.com/pooneetthaper/gan-implementation/master/generated_images/0000000.png" width="70%"/> <br/>
